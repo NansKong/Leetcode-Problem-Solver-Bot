@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LC Automator — Live Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+  :root {
+    --bg:#0a0d14; --surface:#111520; --border:#1e2535;
+    --accent:#00d4ff; --green:#00e5a0; --yellow:#ffb800;
+    --red:#ff4757; --text:#c8d6f0; --muted:#4a5568;
+    --glow:0 0 20px rgba(0,212,255,0.15);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{max-width:1200px;margin:0 auto;padding:2rem;position:relative;z-index:1;}
+  /* Header */
+  header{display:flex;align-items:center;justify-content:space-between;padding:2rem 0 2.5rem;border-bottom:1px solid var(--border);margin-bottom:2rem;}
+  .logo{display:flex;align-items:center;gap:1rem;}
+  .logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#7b2dff);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:var(--glow);}
+  .logo h1{font-size:1.3rem;font-weight:700;background:linear-gradient(90deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .logo span{font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono';display:block;}
+  .header-right{display:flex;align-items:center;gap:1rem;}
+  .status-pill{display:flex;align-items:center;gap:0.5rem;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);color:var(--green);padding:0.4rem 1rem;border-radius:99px;font-size:0.8rem;font-family:'JetBrains Mono';}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .refresh-btn{background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--accent);padding:0.4rem 1rem;border-radius:99px;font-size:0.8rem;font-family:'JetBrains Mono';cursor:pointer;transition:all 0.2s;}
+  .refresh-btn:hover{background:rgba(0,212,255,0.15);}
+  .spinning{animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  /* Loading */
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:1rem;transition:opacity 0.4s;}
+  .loading-overlay.hidden{opacity:0;pointer-events:none;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  .loading-text{font-family:'JetBrains Mono';font-size:0.85rem;color:var(--muted);}
+  /* Error */
+  .error-banner{display:none;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:var(--red);padding:1rem 1.5rem;border-radius:10px;margin-bottom:1.5rem;font-family:'JetBrains Mono';font-size:0.82rem;line-height:1.6;}
+  .error-banner.show{display:block;}
+  /* Stats */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.2rem;margin-bottom:2rem;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;position:relative;overflow:hidden;transition:border-color 0.2s,transform 0.2s;}
+  .stat-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity 0.2s;}
+  .stat-card:hover::before{opacity:1;}
+  .stat-label{font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:0.7rem;font-family:'JetBrains Mono';}
+  .stat-value{font-size:2.2rem;font-weight:700;font-family:'JetBrains Mono';line-height:1;margin-bottom:0.4rem;}
+  .stat-sub{font-size:0.78rem;color:var(--muted);}
+  .stat-card.green .stat-value{color:var(--green);}
+  .stat-card.blue .stat-value{color:var(--accent);}
+  .stat-card.yellow .stat-value{color:var(--yellow);}
+  .stat-card.purple .stat-value{color:#a78bfa;}
+  /* Panels */
+  .main-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;}
+  .panel-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:1.2rem;font-family:'JetBrains Mono';display:flex;align-items:center;gap:0.5rem;}
+  .panel-title::before{content:'';display:block;width:3px;height:14px;background:var(--accent);border-radius:2px;}
+  .full-panel{grid-column:1/-1;}
+  /* Difficulty */
+  .diff-row{margin-bottom:1.2rem;}
+  .diff-header{display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.5rem;}
+  .diff-bar-bg{background:var(--border);border-radius:99px;height:8px;overflow:hidden;}
+  .diff-bar-fill{height:100%;border-radius:99px;width:0;transition:width 1s cubic-bezier(.4,0,.2,1);}
+  .easy-fill{background:linear-gradient(90deg,var(--green),#00ff88);}
+  .medium-fill{background:linear-gradient(90deg,var(--yellow),#ff8c00);}
+  .hard-fill{background:linear-gradient(90deg,var(--red),#ff1744);}
+  /* Tags */
+  .tag-cloud{display:flex;flex-wrap:wrap;gap:0.5rem;}
+  .tag-pill{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.15);color:var(--accent);padding:0.25rem 0.7rem;border-radius:99px;font-size:0.72rem;font-family:'JetBrains Mono';}
+  .tag-pill .cnt{color:var(--muted);font-size:0.65rem;}
+  /* Table */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+  th{text-align:left;padding:0.6rem 0.8rem;font-family:'JetBrains Mono';font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);}
+  td{padding:0.75rem 0.8rem;border-bottom:1px solid rgba(30,37,53,0.6);}
+  tr:last-child td{border-bottom:none;}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover td{background:rgba(0,212,255,0.03);}
+  .badge{display:inline-block;padding:0.2rem 0.6rem;border-radius:99px;font-size:0.7rem;font-family:'JetBrains Mono';font-weight:600;}
+  .badge-ac{background:rgba(0,229,160,0.12);color:var(--green);border:1px solid rgba(0,229,160,0.2);}
+  .badge-wa{background:rgba(255,71,87,0.12);color:var(--red);border:1px solid rgba(255,71,87,0.2);}
+  .badge-tle{background:rgba(255,184,0,0.12);color:var(--yellow);border:1px solid rgba(255,184,0,0.2);}
+  .badge-other{background:rgba(100,100,100,0.12);color:#888;border:1px solid rgba(100,100,100,0.2);}
+  .diff-easy{color:var(--green);font-size:0.78rem;}
+  .diff-med{color:var(--yellow);font-size:0.78rem;}
+  .diff-hard{color:var(--red);font-size:0.78rem;}
+  /* Cost */
+  .cost-row{display:flex;justify-content:space-between;align-items:center;padding:0.7rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;}
+  .cost-row:last-child{border-bottom:none;}
+  .cost-label{color:var(--muted);font-family:'JetBrains Mono';font-size:0.78rem;}
+  .cost-val{font-family:'JetBrains Mono';color:var(--accent);}
+  /* Modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;padding:1.5rem;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:800px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.6);animation:modalIn 0.2s ease;}
+  @keyframes modalIn{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+  .modal-header{display:flex;justify-content:space-between;align-items:flex-start;padding:1.4rem 1.6rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .modal-title{font-size:1rem;font-weight:600;color:var(--text);}
+  .modal-meta{font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono';margin-top:0.3rem;}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;padding:0.2rem 0.4rem;border-radius:6px;transition:color 0.15s;}
+  .modal-close:hover{color:var(--text);}
+  .modal-body{padding:1.2rem 1.6rem;overflow-y:auto;flex:1;}
+  pre{background:#0a0d14;border:1px solid var(--border);border-radius:10px;padding:1.2rem;font-family:'JetBrains Mono';font-size:0.78rem;line-height:1.65;color:#a0b4d0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;}
+  .copy-btn{margin-top:0.8rem;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--accent);padding:0.45rem 1.1rem;border-radius:8px;font-size:0.78rem;font-family:'JetBrains Mono';cursor:pointer;transition:all 0.15s;}
+  .copy-btn:hover{background:rgba(0,212,255,0.15);}
+  .copy-btn.copied{color:var(--green);border-color:rgba(0,229,160,0.3);}
+  /* Empty */
+  .empty-state{text-align:center;padding:2.5rem 1rem;color:var(--muted);font-family:'JetBrains Mono';font-size:0.82rem;}
+  .empty-state .icon{font-size:2.2rem;margin-bottom:0.8rem;}
+  @media(max-width:768px){.main-grid{grid-template-columns:1fr;}.stats-grid{grid-template-columns:repeat(2,1fr);}header{flex-direction:column;gap:1rem;align-items:flex-start;}}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Connecting to database...</div>
+</div>
+
+<!-- Solution Modal -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">Solution</div>
+        <div class="modal-meta"  id="modalMeta"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre id="modalCode">Loading...</pre>
+      <button class="copy-btn" id="copyBtn" onclick="copyCode()">⎘ Copy Code</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>LeetCode Automator</h1>
+        <span>Live Analytics Dashboard — connected to SQLite</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="refresh-btn" id="refreshBtn" onclick="loadAll()">↻ Refresh</button>
+      <div class="status-pill"><div class="dot"></div><span id="statusTxt">Live</span></div>
+    </div>
+  </header>
+
+  <div class="error-banner" id="errorBanner">
+    ⚠ &nbsp;Cannot reach the server. Start it first:<br>
+    <code style="display:block;margin-top:0.5rem;color:var(--yellow)">python server.py</code>
+    Then refresh this page.
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card green">
+      <div class="stat-label">Accepted</div>
+      <div class="stat-value" id="sAccepted">—</div>
+      <div class="stat-sub"   id="sAcceptedSub">—</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Acceptance Rate</div>
+      <div class="stat-value" id="sRate">—</div>
+      <div class="stat-sub"   id="sRateSub">—</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-label">GPT Tokens</div>
+      <div class="stat-value" id="sTokens">—</div>
+      <div class="stat-sub"   id="sTokensSub">—</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Est. Cost (USD)</div>
+      <div class="stat-value" id="sCost">—</div>
+      <div class="stat-sub"   id="sCostSub">—</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Difficulty -->
+    <div class="panel">
+      <div class="panel-title">Difficulty Breakdown</div>
+      <div id="diffPanel"><div class="empty-state"><div class="icon">📊</div>Loading…</div></div>
+    </div>
+
+    <!-- Cost -->
+    <div class="panel">
+      <div class="panel-title">GPT Cost Tracker</div>
+      <div id="costPanel"><div class="empty-state"><div class="icon">💰</div>Loading…</div></div>
+    </div>
+
+    <!-- Tags -->
+    <div class="panel">
+      <div class="panel-title">Top Tags (Accepted)</div>
+      <div class="tag-cloud" id="tagsPanel"><div class="empty-state" style="width:100%"><div class="icon">🏷</div>Loading…</div></div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="panel">
+      <div class="panel-title">Daily Activity</div>
+      <div id="timelinePanel"><div class="empty-state"><div class="icon">📅</div>Loading…</div></div>
+    </div>
+
+    <!-- All Submissions -->
+    <div class="panel full-panel">
+      <div class="panel-title">All Submissions — click any row to view its solution code</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Problem</th><th>Difficulty</th><th>Status</th>
+              <th>Runtime</th><th>Memory</th><th>Language</th><th>Tokens</th><th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="attemptsBody">
+            <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem;font-family:'JetBrains Mono';font-size:0.8rem;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="border-top:1px solid var(--border);padding:1.5rem 0;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:0.75rem;font-family:'JetBrains Mono'">
+    <span>⚠ For educational purposes only. Always understand generated code before submitting.</span>
+    <span id="footerInfo">LeetCode Automator v1.0</span>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:5000/api';
+
+async function apiFetch(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+/* ── Renders ── */
+function renderStats(s) {
+  document.getElementById('sAccepted').textContent    = s.accepted;
+  document.getElementById('sAcceptedSub').textContent = `of ${s.total} attempts`;
+  document.getElementById('sRate').textContent        = s.acceptance_rate + '%';
+  document.getElementById('sRateSub').textContent     = `${s.unique_problems} unique problems`;
+  document.getElementById('sTokens').textContent      = fmtNum(s.total_tokens);
+  document.getElementById('sTokensSub').textContent   = `${s.total} submissions`;
+  document.getElementById('sCost').textContent        = '$' + Number(s.total_cost || 0).toFixed(4);
+  document.getElementById('sCostSub').textContent     = s.total > 0
+    ? `~$${(s.total_cost / s.total).toFixed(4)} per problem` : '';
+}
+
+function renderDiff(data) {
+  const order = ['Easy','Medium','Hard'];
+  const cls   = {Easy:'easy-fill',Medium:'medium-fill',Hard:'hard-fill'};
+  const col   = {Easy:'var(--green)',Medium:'var(--yellow)',Hard:'var(--red)'};
+  if (!Object.keys(data).length) {
+    document.getElementById('diffPanel').innerHTML = emptyState('📊','No data yet');
+    return;
+  }
+  let h = '';
+  order.forEach(d => {
+    if (!data[d]) return;
+    const {total, accepted} = data[d];
+    const pct = total > 0 ? Math.round(accepted/total*100) : 0;
+    h += `<div class="diff-row">
+      <div class="diff-header">
+        <span style="color:${col[d]}">● ${d}</span>
+        <span style="font-family:'JetBrains Mono';font-size:.8rem">${accepted}/${total} · ${pct}%</span>
+      </div>
+      <div class="diff-bar-bg">
+        <div class="diff-bar-fill ${cls[d]}" data-w="${pct}" style="width:0"></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('diffPanel').innerHTML = h;
+  setTimeout(() => document.querySelectorAll('.diff-bar-fill').forEach(b => b.style.width = b.dataset.w + '%'), 60);
+}
+
+function renderCost(s, attempts) {
+  const models   = [...new Set(attempts.map(a=>a.gpt_model).filter(Boolean))];
+  const retries  = attempts.filter(a=>a.is_retry).length;
+  const retryPct = attempts.length ? ((retries/attempts.length)*100).toFixed(1) : 0;
+  const avg      = attempts.length ? Math.round((s.total_tokens||0)/attempts.length) : 0;
+  document.getElementById('costPanel').innerHTML = `
+    <div class="cost-row"><span class="cost-label">Model(s)</span><span class="cost-val">${models.join(', ')||'N/A'}</span></div>
+    <div class="cost-row"><span class="cost-label">Avg tokens / problem</span><span class="cost-val">${avg.toLocaleString()}</span></div>
+    <div class="cost-row"><span class="cost-label">Total tokens</span><span class="cost-val">${(s.total_tokens||0).toLocaleString()}</span></div>
+    <div class="cost-row"><span class="cost-label">Total cost (USD)</span><span class="cost-val" style="color:var(--green)">$${Number(s.total_cost||0).toFixed(6)}</span></div>
+    <div class="cost-row"><span class="cost-label">Retry rate</span><span class="cost-val" style="color:var(--yellow)">${retryPct}%</span></div>
+    <div class="cost-row"><span class="cost-label">Retried attempts</span><span class="cost-val">${retries}</span></div>`;
+}
+
+function renderTags(tags) {
+  if (!tags.length) {
+    document.getElementById('tagsPanel').innerHTML = emptyState('🏷','No accepted solutions yet');
+    return;
+  }
+  document.getElementById('tagsPanel').innerHTML = tags.map(t =>
+    `<span class="tag-pill">${esc(t.tag)} <span class="cnt">${t.count}</span></span>`
+  ).join('');
+}
+
+function renderTimeline(rows) {
+  if (!rows.length) {
+    document.getElementById('timelinePanel').innerHTML = emptyState('📅','No activity yet');
+    return;
+  }
+  const recent = rows.slice(0,7).reverse();
+  const max = Math.max(...recent.map(r=>r.total), 1);
+  document.getElementById('timelinePanel').innerHTML = recent.map(r => `
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.7rem;font-size:0.78rem">
+      <span style="font-family:'JetBrains Mono';color:var(--muted);width:84px;flex-shrink:0">${r.day}</span>
+      <div style="flex:1;background:var(--border);border-radius:99px;height:7px;overflow:hidden">
+        <div style="width:${Math.round(r.total/max*100)}%;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),#7b2dff)"></div>
+      </div>
+      <span style="font-family:'JetBrains Mono';color:var(--green);width:50px;text-align:right">${r.accepted}/${r.total}</span>
+    </div>`).join('');
+}
+
+function renderAttempts(attempts) {
+  const body = document.getElementById('attemptsBody');
+  if (!attempts.length) {
+    body.innerHTML = `<tr><td colspan="9">${emptyState('🚀','No submissions yet — run <code>python main.py &lt;number&gt;</code> to start!')}</td></tr>`;
+    return;
+  }
+  body.innerHTML = attempts.map(a => {
+    const ts = a.timestamp ? a.timestamp.replace('T',' ').split('.')[0] : '—';
+    return `<tr class="clickable" onclick="openSolution(${a.question_number},'${esc(a.title)}','${a.difficulty}','${a.status}','${a.language}','${ts}')">
+      <td style="font-family:'JetBrains Mono';color:var(--muted)">${a.question_number}</td>
+      <td>${esc(a.title)}</td>
+      <td><span class="${diffCls(a.difficulty)}">● ${a.difficulty||'—'}</span></td>
+      <td>${statusBadge(a.status)}</td>
+      <td style="font-family:'JetBrains Mono';font-size:0.78rem">${a.runtime||'—'}</td>
+      <td style="font-family:'JetBrains Mono';font-size:0.78rem">${a.memory||'—'}</td>
+      <td style="font-family:'JetBrains Mono';font-size:0.78rem">${a.language||'—'}</td>
+      <td style="font-family:'JetBrains Mono';font-size:0.78rem">${(a.tokens_used||0).toLocaleString()}</td>
+      <td style="color:var(--muted);font-family:'JetBrains Mono';font-size:0.73rem">${ts}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Modal ── */
+async function openSolution(qNum, title, diff, status, lang, ts) {
+  document.getElementById('modalTitle').textContent = `#${qNum} — ${title}`;
+  document.getElementById('modalMeta').textContent  = `${diff} · ${lang} · ${status} · ${ts}`;
+  document.getElementById('modalCode').textContent  = 'Loading solution…';
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    const d = await apiFetch(`/solution/${qNum}`);
+    document.getElementById('modalCode').textContent = d.solution_code || '# No solution code stored.';
+  } catch {
+    document.getElementById('modalCode').textContent = '# Solution not found in the database.';
+  }
+}
+function closeBg(e){ if(e.target===document.getElementById('modalBackdrop')) closeModal(); }
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+function copyCode(){
+  navigator.clipboard.writeText(document.getElementById('modalCode').textContent).then(()=>{
+    const b = document.getElementById('copyBtn');
+    b.textContent='✓ Copied!'; b.classList.add('copied');
+    setTimeout(()=>{ b.textContent='⎘ Copy Code'; b.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Main Load ── */
+async function loadAll() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  try {
+    const [stats, diff, attempts, tags, timeline] = await Promise.all([
+      apiFetch('/stats'), apiFetch('/difficulty'),
+      apiFetch('/attempts'), apiFetch('/tags'), apiFetch('/timeline'),
+    ]);
+    document.getElementById('errorBanner').classList.remove('show');
+    document.getElementById('statusTxt').textContent = 'Live';
+    renderStats(stats);
+    renderDiff(diff);
+    renderCost(stats, attempts);
+    renderTags(tags);
+    renderTimeline(timeline);
+    renderAttempts(attempts);
+    document.getElementById('footerInfo').textContent =
+      `Last updated: ${new Date().toLocaleTimeString()} · LeetCode Automator v1.0`;
+  } catch(e) {
+    document.getElementById('errorBanner').classList.add('show');
+    document.getElementById('statusTxt').textContent = 'Offline';
+  } finally {
+    btn.classList.remove('spinning');
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }
+}
+
+/* ── Helpers ── */
+function fmtNum(n){ if(!n)return'0'; if(n>=1e6)return(n/1e6).toFixed(1)+'M'; if(n>=1e3)return(n/1e3).toFixed(1)+'k'; return''+n; }
+function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
+function emptyState(icon,msg){ return `<div class="empty-state"><div class="icon">${icon}</div>${msg}</div>`; }
+function diffCls(d){ return d==='Easy'?'diff-easy':d==='Medium'?'diff-med':'diff-hard'; }
+function statusBadge(s){
+  if(!s) return '<span class="badge badge-other">—</span>';
+  if(s==='Accepted')     return '<span class="badge badge-ac">Accepted</span>';
+  if(s==='Wrong Answer') return '<span class="badge badge-wa">Wrong Answer</span>';
+  if(s.includes('Limit'))return `<span class="badge badge-tle">${esc(s)}</span>`;
+  if(s==='DRY_RUN')      return '<span class="badge badge-other">Dry Run</span>';
+  return `<span class="badge badge-other">${esc(s)}</span>`;
+}
+
+loadAll();
+setInterval(loadAll, 15000); // auto-refresh every 15s
+</script>
+</body>
+</html>
