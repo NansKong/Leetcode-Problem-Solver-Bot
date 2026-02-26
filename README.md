@@ -1,4 +1,4 @@
-# ⚡ LeetCode Intelligent Automation System
+# LeetCode Automated Problem Solver Bot
 
 > **For Educational Purposes Only.**
 > Understanding generated code is mandatory. Blind submission violates the spirit of learning.
